@@ -30,9 +30,13 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import info.guardianproject.onionkit.ui.OrbotHelper;
+
 import java.io.*;
 import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
 import java.net.MalformedURLException;
+import java.net.Proxy;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
@@ -109,6 +113,13 @@ public class Request {
 
     private static final String MIME_BOUNDARY = "3i2ndDfv2rTHiSisAbouNdArYfORhtTPEefj3q2f";
 
+    //netcipher
+    private static final String ORBOT_HOST = "127.0.0.1";
+    private static final int ORBOT_HTTP_PORT = 8118;
+    private static final int ORBOT_SOCKS_PORT = 9050;
+    
+    private static final String LOG_TAG = Logger.LOG_TAG_BASE + "Request";
+    private static Context mContext;
     private static String defaultBatchApplicationId;
 
     private static Pattern versionPattern = Pattern.compile("^v\\d+\\.\\d+/.*");
@@ -219,6 +230,7 @@ public class Request {
      */
     public Request(Session session, String graphPath, Bundle parameters, HttpMethod httpMethod, Callback callback, String version) {
         this.session = session;
+        mContext = Session.getStaticContext();
         this.graphPath = graphPath;
         this.callback = callback;
         this.version = version;
@@ -1744,9 +1756,24 @@ public class Request {
     }
 
     static HttpURLConnection createConnection(URL url) throws IOException {
-        HttpURLConnection connection;
-        connection = (HttpURLConnection) url.openConnection();
-
+    	Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(ORBOT_HOST, ORBOT_HTTP_PORT));
+    	//Proxy proxy = new Proxy(Proxy.Type.SOCKS, new InetSocketAddress(ORBOT_HOST, ORBOT_SOCKS_PORT));	
+    	
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        
+        if(null != mContext) {
+        	OrbotHelper orbotHelper = new OrbotHelper(mContext);
+            
+            if(orbotHelper.isOrbotRunning()) {    
+                try {
+                	connection = (HttpURLConnection) url.openConnection(proxy);
+        		} catch (Exception e) {
+        			Utility.logd(LOG_TAG, "Request: Error setting Proxy");
+        			e.printStackTrace();
+        		}
+            }
+        }
+    	
         connection.setRequestProperty(USER_AGENT_HEADER, getUserAgent());
         connection.setRequestProperty(CONTENT_TYPE_HEADER, getMimeContentType());
         connection.setRequestProperty(ACCEPT_LANGUAGE_HEADER, Locale.getDefault().toString());

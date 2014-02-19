@@ -36,12 +36,16 @@ import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+
 import com.facebook.*;
 import com.facebook.android.*;
 import com.facebook.internal.Logger;
 import com.facebook.internal.ServerProtocol;
 import com.facebook.internal.Utility;
 import com.facebook.internal.Validate;
+
+import info.guardianproject.onionkit.ui.OrbotHelper;
+import info.guardianproject.onionkit.web.*;
 
 /**
  * This class provides a mechanism for displaying Facebook Web dialogs inside a Dialog. Helper
@@ -72,6 +76,11 @@ public class WebDialog extends Dialog {
 
     public static final int DEFAULT_THEME = android.R.style.Theme_Translucent_NoTitleBar;
 
+    //netcipher
+    private static final String ORBOT_HOST = "127.0.0.1";
+    private static final int ORBOT_HTTP_PORT = 8118;
+    private static final int ORBOT_SOCKS_PORT = 9050;
+    
     private String url;
     private OnCompleteListener onCompleteListener;
     private WebView webView;
@@ -80,6 +89,7 @@ public class WebDialog extends Dialog {
     private FrameLayout contentFrameLayout;
     private boolean listenerCalled = false;
     private boolean isDetached = false;
+    private Context mContext;
 
     /**
      * Interface that implements a listener to be called when the user's interaction with the
@@ -132,6 +142,8 @@ public class WebDialog extends Dialog {
     public WebDialog(Context context, String action, Bundle parameters, int theme, OnCompleteListener listener) {
         super(context, theme);
 
+        mContext = context;
+        
         if (parameters == null) {
             parameters = new Bundle();
         }
@@ -337,7 +349,18 @@ public class WebDialog extends Dialog {
     @SuppressLint("SetJavaScriptEnabled")
     private void setUpWebView(int margin) {
         LinearLayout webViewContainer = new LinearLayout(getContext());
-        webView = new WebView(getContext());
+        webView = new WebView(getContext());  
+        OrbotHelper orbotHelper = new OrbotHelper(getContext());
+        
+        if(orbotHelper.isOrbotRunning()) {    
+            try {
+    			WebkitProxy.setProxy("android.app.Application", mContext.getApplicationContext() , ORBOT_HOST, ORBOT_HTTP_PORT);
+    		} catch (Exception e) {
+    			Utility.logd(LOG_TAG, "WebKitProxy: Error setting Proxy");
+    			e.printStackTrace();
+    		}
+        }
+        
         webView.setVerticalScrollBarEnabled(false);
         webView.setHorizontalScrollBarEnabled(false);
         webView.setWebViewClient(new DialogWebViewClient());

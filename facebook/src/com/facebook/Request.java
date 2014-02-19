@@ -34,7 +34,9 @@ import org.json.JSONObject;
 
 import java.io.*;
 import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
 import java.net.MalformedURLException;
+import java.net.Proxy;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
@@ -106,6 +108,11 @@ public class Request {
 
     private static final String MIME_BOUNDARY = "3i2ndDfv2rTHiSisAbouNdArYfORhtTPEefj3q2f";
 
+    //netcipher
+    private static final String ORBOT_HOST = "127.0.0.1";
+    private static final int ORBOT_HTTP_PORT = 8118;
+    private static final int ORBOT_SOCKS_PORT = 9050;
+    
     private static String defaultBatchApplicationId;
 
     private Session session;
@@ -1688,8 +1695,11 @@ public class Request {
     }
 
     static HttpURLConnection createConnection(URL url) throws IOException {
+    	Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(ORBOT_HOST, ORBOT_HTTP_PORT));
+    	//Proxy proxy = new Proxy(Proxy.Type.SOCKS, new InetSocketAddress(ORBOT_HOST, ORBOT_SOCKS_PORT));	
+    	
         HttpURLConnection connection;
-        connection = (HttpURLConnection) url.openConnection();
+        connection = (HttpURLConnection) url.openConnection(proxy);
 
         connection.setRequestProperty(USER_AGENT_HEADER, getUserAgent());
         connection.setRequestProperty(CONTENT_TYPE_HEADER, getMimeContentType());

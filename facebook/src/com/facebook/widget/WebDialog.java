@@ -36,6 +36,7 @@ import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+
 import com.facebook.*;
 import com.facebook.android.*;
 import com.facebook.internal.Logger;
@@ -43,6 +44,7 @@ import com.facebook.internal.ServerProtocol;
 import com.facebook.internal.Utility;
 import com.facebook.internal.Validate;
 
+import info.guardianproject.onionkit.ui.OrbotHelper;
 import info.guardianproject.onionkit.web.*;
 
 /**
@@ -342,14 +344,17 @@ public class WebDialog extends Dialog {
     @SuppressLint("SetJavaScriptEnabled")
     private void setUpWebView(int margin) {
         LinearLayout webViewContainer = new LinearLayout(getContext());
-        webView = new WebView(getContext());
+        webView = new WebView(getContext());  
+        OrbotHelper orbotHelper = new OrbotHelper(getContext());
         
-        try {
-			WebkitProxy.setProxy("android.app.Application", mContext.getApplicationContext() , ORBOT_HOST, ORBOT_HTTP_PORT);
-		} catch (Exception e) {
-			Utility.logd(LOG_TAG, "WebKitProxy: Error setting Proxy");
-			e.printStackTrace();
-		}
+        if(orbotHelper.isOrbotRunning()) {    
+            try {
+    			WebkitProxy.setProxy("android.app.Application", mContext.getApplicationContext() , ORBOT_HOST, ORBOT_HTTP_PORT);
+    		} catch (Exception e) {
+    			Utility.logd(LOG_TAG, "WebKitProxy: Error setting Proxy");
+    			e.printStackTrace();
+    		}
+        }
         
         webView.setVerticalScrollBarEnabled(false);
         webView.setHorizontalScrollBarEnabled(false);

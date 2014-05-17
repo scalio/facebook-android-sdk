@@ -24,27 +24,13 @@ import android.os.*;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
-<<<<<<< HEAD
-
-import com.facebook.internal.ServerProtocol;
-import com.facebook.model.*;
-import com.facebook.internal.Logger;
-import com.facebook.internal.Utility;
-import com.facebook.internal.Validate;
-
-=======
 import com.facebook.internal.*;
 import com.facebook.model.*;
->>>>>>> e2d93fba0fbf340be7b78282cbad3c1a57b68527
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import info.guardianproject.onionkit.ui.OrbotHelper;
-<<<<<<< HEAD
-import info.guardianproject.onionkit.web.WebkitProxy;
-=======
->>>>>>> e2d93fba0fbf340be7b78282cbad3c1a57b68527
 
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -1790,13 +1776,9 @@ public class Request {
     	
         connection.setRequestProperty(USER_AGENT_HEADER, getUserAgent());
         connection.setRequestProperty(CONTENT_TYPE_HEADER, getMimeContentType());
-<<<<<<< HEAD
-=======
         connection.setRequestProperty(ACCEPT_LANGUAGE_HEADER, Locale.getDefault().toString());
 
->>>>>>> e2d93fba0fbf340be7b78282cbad3c1a57b68527
         connection.setChunkedStreamingMode(0);
-        
         return connection;
     }
 

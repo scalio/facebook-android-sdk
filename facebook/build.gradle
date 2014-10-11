@@ -1,13 +1,8 @@
 apply plugin: 'android-library'
 
-dependencies {
-    compile 'com.android.support:support-v4:13.0.+'
-    compile files('libs/bolts.jar')
-}
-
 android {
     compileSdkVersion 19
-    buildToolsVersion "19"
+    buildToolsVersion "20.0.0"
 
     defaultConfig {
         minSdkVersion 8
@@ -25,4 +20,10 @@ android {
             res.srcDirs = ['res']
         }
     }
+}
+
+dependencies {
+    compile project(':external:NetCipher:libnetcipher')
+    compile 'com.android.support:support-v4:13.0.+'
+    compile files('libs/bolts.jar')
 }

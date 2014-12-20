@@ -24,6 +24,6 @@ android {
 
 dependencies {
     compile project(':external:NetCipher:libnetcipher')
-    compile 'com.android.support:support-v4:13.0.+'
+    compile 'com.android.support:support-v4:21.0.3'
     compile files('libs/bolts.jar')
 }

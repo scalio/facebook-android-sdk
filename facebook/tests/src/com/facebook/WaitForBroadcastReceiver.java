@@ -1,17 +1,21 @@
 /**
- * Copyright 2010-present Facebook.
+ * Copyright (c) 2014-present, Facebook, Inc. All rights reserved.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * You are hereby granted a non-exclusive, worldwide, royalty-free license to use,
+ * copy, modify, and distribute this software in source code or binary form for use
+ * in connection with the web services and APIs provided by Facebook.
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * As with any software that integrates with the Facebook platform, your use of
+ * this software is subject to the Facebook Developer Principles and Policies
+ * [http://developers.facebook.com/policy/]. This copyright notice shall be
+ * included in all copies or substantial portions of the software.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
 package com.facebook;
@@ -21,12 +25,15 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.ConditionVariable;
 import android.os.Looper;
+
 import junit.framework.Assert;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
-class WaitForBroadcastReceiver extends BroadcastReceiver {
+public final class WaitForBroadcastReceiver extends BroadcastReceiver {
+    static final int DEFAULT_TIMEOUT_MILLISECONDS = 10 * 1000;
     static int idGenerator = 0;
     final int id = idGenerator++;
 
@@ -34,6 +41,15 @@ class WaitForBroadcastReceiver extends BroadcastReceiver {
     int expectCount;
     int actualCount;
     List<Intent> receivedIntents = new ArrayList<Intent>();
+    List<String> expectedActions = new ArrayList<String>();
+    List<Intent> unexpectedIntents = new ArrayList<Intent>();
+
+    public WaitForBroadcastReceiver() {
+    }
+
+    public WaitForBroadcastReceiver(String... expectedActions) {
+        this.expectedActions = Arrays.asList(expectedActions);
+    }
 
     public void incrementExpectCount() {
         incrementExpectCount(1);
@@ -47,7 +63,7 @@ class WaitForBroadcastReceiver extends BroadcastReceiver {
     }
 
     public void waitForExpectedCalls() {
-        this.waitForExpectedCalls(SessionTestsBase.DEFAULT_TIMEOUT_MILLISECONDS);
+        this.waitForExpectedCalls(DEFAULT_TIMEOUT_MILLISECONDS);
     }
 
     public void waitForExpectedCalls(long timeoutMillis) {
@@ -58,6 +74,10 @@ class WaitForBroadcastReceiver extends BroadcastReceiver {
 
     public List<Intent> getReceivedIntents() {
         return receivedIntents;
+    }
+
+    public List<Intent> getUnexpectedIntents() {
+        return unexpectedIntents;
     }
 
     public static void incrementExpectCounts(WaitForBroadcastReceiver... receivers) {
@@ -74,11 +94,22 @@ class WaitForBroadcastReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        receivedIntents.add(intent);
+
+        if (!expectedActions.isEmpty()) {
+            String action = intent.getAction();
+            if (!expectedActions.contains(action)) {
+                unexpectedIntents.add(intent);
+                return;
+            }
+        }
+
         if (++actualCount == expectCount) {
             condition.open();
         }
-        receivedIntents.add(intent);
-        Assert.assertTrue("expecting " + expectCount + "broadcasts, but received " + actualCount,                actualCount <= expectCount);
+
+        Assert.assertTrue("expecting " + expectCount + "broadcasts, but received " + actualCount,
+                actualCount <= expectCount);
         Assert.assertEquals("BroadcastReceiver should receive on main UI thread",
                 Thread.currentThread(), Looper.getMainLooper().getThread());
     }

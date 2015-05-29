@@ -1,17 +1,21 @@
 /**
- * Copyright 2010-present Facebook.
+ * Copyright (c) 2014-present, Facebook, Inc. All rights reserved.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * You are hereby granted a non-exclusive, worldwide, royalty-free license to use,
+ * copy, modify, and distribute this software in source code or binary form for use
+ * in connection with the web services and APIs provided by Facebook.
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * As with any software that integrates with the Facebook platform, your use of
+ * this software is subject to the Facebook Developer Principles and Policies
+ * [http://developers.facebook.com/policy/]. This copyright notice shall be
+ * included in all copies or substantial portions of the software.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
 package com.facebook.internal;
@@ -19,9 +23,11 @@ package com.facebook.internal;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import com.facebook.FacebookException;
+import com.facebook.R;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,8 +36,14 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
+/**
+ * com.facebook.internal is solely for the use of other packages within the
+ * Facebook SDK for Android. Use of any of the classes in this package is
+ * unsupported, and they may be modified or removed without warning at any time.
+ */
 public class ImageDownloader {
     private static final int DOWNLOAD_QUEUE_MAX_CONCURRENT = WorkQueue.DEFAULT_MAX_CONCURRENT;
     private static final int CACHE_READ_QUEUE_MAX_CONCURRENT = 2;
@@ -54,8 +66,9 @@ public class ImageDownloader {
         // NOTE: This is the ONLY place where the original request's Url is read. From here on,
         // we will keep track of the Url separately. This is because we might be dealing with a
         // redirect response and the Url might change. We can't create our own new ImageRequests
-        // for these changed Urls since the caller might be doing some book-keeping with the request's
-        // object reference. So we keep the old references and just map them to new urls in the downloader
+        // for these changed Urls since the caller might be doing some book-keeping with the
+        // requests object reference. So we keep the old references and just map them to new urls in
+        // the downloader.
         RequestKey key = new RequestKey(request.getImageUri(), request.getCallerTag());
         synchronized (pendingRequests) {
             DownloaderContext downloaderContext = pendingRequests.get(key);
@@ -76,8 +89,9 @@ public class ImageDownloader {
             DownloaderContext downloaderContext = pendingRequests.get(key);
             if (downloaderContext != null) {
                 // If we were able to find the request in our list of pending requests, then we will
-                // definitely be able to prevent an ImageResponse from being issued. This is regardless
-                // of whether a cache-read or network-download is underway for this request.
+                // definitely be able to prevent an ImageResponse from being issued. This is
+                // regardless of whether a cache-read or network-download is underway for this
+                // request.
                 cancelled = true;
 
                 if (downloaderContext.workItem.cancel()) {
@@ -105,10 +119,13 @@ public class ImageDownloader {
 
     public static void clearCache(Context context) {
         ImageResponseCache.clearCache(context);
-        UrlRedirectCache.clearCache(context);
+        UrlRedirectCache.clearCache();
     }
 
-    private static void enqueueCacheRead(ImageRequest request, RequestKey key, boolean allowCachedRedirects) {
+    private static void enqueueCacheRead(
+            ImageRequest request,
+            RequestKey key,
+            boolean allowCachedRedirects) {
         enqueueRequest(
                 request,
                 key,
@@ -134,13 +151,14 @@ public class ImageDownloader {
             downloaderContext.request = request;
             pendingRequests.put(key, downloaderContext);
 
-            // The creation of the WorkItem should be done after the pending request has been registered.
-            // This is necessary since the WorkItem might kick off right away and attempt to retrieve
-            // the request's DownloaderContext prior to it being ready for access.
+            // The creation of the WorkItem should be done after the pending request has been
+            // registered. This is necessary since the WorkItem might kick off right away and
+            // attempt to retrieve the request's DownloaderContext prior to it being ready for
+            // access.
             //
-            // It is also necessary to hold on to the lock until after the workItem is created, since
-            // calls to cancelRequest or prioritizeRequest might come in and expect a registered
-            // request to have a workItem available as well.
+            // It is also necessary to hold on to the lock until after the workItem is created,
+            // since calls to cancelRequest or prioritizeRequest might come in and expect a
+            // registered request to have a workItem available as well.
             downloaderContext.workItem = workQueue.addActiveWorkItem(workItem);
         }
     }
@@ -172,11 +190,14 @@ public class ImageDownloader {
         }
     }
 
-    private static void readFromCache(RequestKey key, Context context, boolean allowCachedRedirects) {
+    private static void readFromCache(
+            RequestKey key,
+            Context context,
+            boolean allowCachedRedirects) {
         InputStream cachedStream = null;
         boolean isCachedRedirect = false;
         if (allowCachedRedirects) {
-            URI redirectUri = UrlRedirectCache.getRedirectedUri(context, key.uri);
+            Uri redirectUri = UrlRedirectCache.getRedirectedUri(key.uri);
             if (redirectUri != null) {
                 cachedStream = ImageResponseCache.getCachedImageStream(redirectUri, context);
                 isCachedRedirect = cachedStream != null;
@@ -222,11 +243,11 @@ public class ImageDownloader {
 
                     String redirectLocation = connection.getHeaderField("location");
                     if (!Utility.isNullOrEmpty(redirectLocation)) {
-                        URI redirectUri = new URI(redirectLocation);
-                        UrlRedirectCache.cacheUriRedirect(context, key.uri, redirectUri);
+                        Uri redirectUri = Uri.parse(redirectLocation);
+                        UrlRedirectCache.cacheUriRedirect(key.uri, redirectUri);
 
-                        // Once the old downloader context is removed, we are thread-safe since this is the
-                        // only reference to it
+                        // Once the old downloader context is removed, we are thread-safe since this
+                        // is the only reference to it
                         DownloaderContext downloaderContext = removePendingRequest(key);
                         if (downloaderContext != null && !downloaderContext.isCancelled) {
                             enqueueCacheRead(
@@ -245,21 +266,23 @@ public class ImageDownloader {
 
                 default:
                     stream = connection.getErrorStream();
-                    InputStreamReader reader = new InputStreamReader(stream);
-                    char[] buffer = new char[128];
-                    int bufferLength;
                     StringBuilder errorMessageBuilder = new StringBuilder();
-                    while ((bufferLength = reader.read(buffer, 0, buffer.length)) > 0) {
-                        errorMessageBuilder.append(buffer, 0, bufferLength);
+                    if (stream != null) {
+                        InputStreamReader reader = new InputStreamReader(stream);
+                        char[] buffer = new char[128];
+                        int bufferLength;
+                        while ((bufferLength = reader.read(buffer, 0, buffer.length)) > 0) {
+                            errorMessageBuilder.append(buffer, 0, bufferLength);
+                        }
+                        Utility.closeQuietly(reader);
+                    } else {
+                        errorMessageBuilder.append(
+                            context.getString(R.string.com_facebook_image_download_unknown_error));
                     }
-                    Utility.closeQuietly(reader);
-
                     error = new FacebookException(errorMessageBuilder.toString());
                     break;
             }
         } catch (IOException e) {
-            error = e;
-        } catch (URISyntaxException e) {
             error = e;
         } finally {
             Utility.closeQuietly(stream);
@@ -288,10 +311,10 @@ public class ImageDownloader {
         private static final int HASH_SEED = 29; // Some random prime number
         private static final int HASH_MULTIPLIER = 37; // Some random prime number
 
-        URI uri;
+        Uri uri;
         Object tag;
 
-        RequestKey(URI url, Object tag) {
+        RequestKey(Uri url, Object tag) {
             this.uri = url;
             this.tag = tag;
         }

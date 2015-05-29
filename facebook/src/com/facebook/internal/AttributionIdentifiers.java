@@ -1,17 +1,21 @@
 /**
- * Copyright 2010-present Facebook.
+ * Copyright (c) 2014-present, Facebook, Inc. All rights reserved.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * You are hereby granted a non-exclusive, worldwide, royalty-free license to use,
+ * copy, modify, and distribute this software in source code or binary form for use
+ * in connection with the web services and APIs provided by Facebook.
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * As with any software that integrates with the Facebook platform, your use of
+ * this software is subject to the Facebook Developer Principles and Policies
+ * [http://developers.facebook.com/policy/]. This copyright notice shall be
+ * included in all copies or substantial portions of the software.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
 package com.facebook.internal;
@@ -19,19 +23,24 @@ package com.facebook.internal;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Looper;
 import android.util.Log;
+
+import com.facebook.FacebookException;
 
 import java.lang.reflect.Method;
 
 /**
- * com.facebook.internal is solely for the use of other packages within the Facebook SDK for Android. Use of
- * any of the classes in this package is unsupported, and they may be modified or removed without warning at
- * any time.
+ * com.facebook.internal is solely for the use of other packages within the Facebook SDK for
+ * Android. Use of any of the classes in this package is unsupported, and they may be modified or
+ * removed without warning at any time.
  */
 public class AttributionIdentifiers {
     private static final String TAG = AttributionIdentifiers.class.getCanonicalName();
-    private static final Uri ATTRIBUTION_ID_CONTENT_URI =
-            Uri.parse("content://com.facebook.katana.provider.AttributionIdProvider");
+    private static final String ATTRIBUTION_ID_CONTENT_PROVIDER =
+            "com.facebook.katana.provider.AttributionIdProvider";
+    private static final String ATTRIBUTION_ID_CONTENT_PROVIDER_WAKIZASHI =
+            "com.facebook.wakizashi.provider.AttributionIdProvider";
     private static final String ATTRIBUTION_ID_COLUMN_NAME = "aid";
     private static final String ANDROID_ID_COLUMN_NAME = "androidid";
     private static final String LIMIT_TRACKING_COLUMN_NAME = "limit_tracking";
@@ -51,6 +60,11 @@ public class AttributionIdentifiers {
     private static AttributionIdentifiers getAndroidId(Context context) {
         AttributionIdentifiers identifiers = new AttributionIdentifiers();
         try {
+            // We can't call getAdvertisingIdInfo on the main thread or the app will potentially
+            // freeze, if this is the case throw:
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+              throw new FacebookException("getAndroidId cannot be called on the main thread.");
+            }
             Method isGooglePlayServicesAvailable = Utility.getMethodQuietly(
                     "com.google.android.gms.common.GooglePlayServicesUtil",
                     "isGooglePlayServicesAvailable",
@@ -61,8 +75,10 @@ public class AttributionIdentifiers {
                 return identifiers;
             }
 
-            Object connectionResult = Utility.invokeMethodQuietly(null, isGooglePlayServicesAvailable, context);
-            if (!(connectionResult instanceof Integer) || (Integer) connectionResult != CONNECTION_RESULT_SUCCESS) {
+            Object connectionResult = Utility.invokeMethodQuietly(
+                    null, isGooglePlayServicesAvailable, context);
+            if (!(connectionResult instanceof Integer)
+                    || (Integer) connectionResult != CONNECTION_RESULT_SUCCESS) {
                 return identifiers;
             }
 
@@ -74,19 +90,25 @@ public class AttributionIdentifiers {
             if (getAdvertisingIdInfo == null) {
                 return identifiers;
             }
-            Object advertisingInfo = Utility.invokeMethodQuietly(null, getAdvertisingIdInfo, context);
+            Object advertisingInfo = Utility.invokeMethodQuietly(
+                    null, getAdvertisingIdInfo, context);
             if (advertisingInfo == null) {
                 return identifiers;
             }
 
             Method getId = Utility.getMethodQuietly(advertisingInfo.getClass(), "getId");
-            Method isLimitAdTrackingEnabled = Utility.getMethodQuietly(advertisingInfo.getClass(), "isLimitAdTrackingEnabled");
+            Method isLimitAdTrackingEnabled = Utility.getMethodQuietly(
+                    advertisingInfo.getClass(),
+                    "isLimitAdTrackingEnabled");
             if (getId == null || isLimitAdTrackingEnabled == null) {
                 return identifiers;
             }
 
-            identifiers.androidAdvertiserId = (String) Utility.invokeMethodQuietly(advertisingInfo, getId);
-            identifiers.limitTracking = (Boolean) Utility.invokeMethodQuietly(advertisingInfo, isLimitAdTrackingEnabled);
+            identifiers.androidAdvertiserId =
+                    (String) Utility.invokeMethodQuietly(advertisingInfo, getId);
+            identifiers.limitTracking = (Boolean) Utility.invokeMethodQuietly(
+                    advertisingInfo,
+                    isLimitAdTrackingEnabled);
         } catch (Exception e) {
             Utility.logd("android_id", e);
         }
@@ -95,17 +117,32 @@ public class AttributionIdentifiers {
 
     public static AttributionIdentifiers getAttributionIdentifiers(Context context) {
         if (recentlyFetchedIdentifiers != null &&
-            System.currentTimeMillis() - recentlyFetchedIdentifiers.fetchTime < IDENTIFIER_REFRESH_INTERVAL_MILLIS) {
+            System.currentTimeMillis() - recentlyFetchedIdentifiers.fetchTime <
+                    IDENTIFIER_REFRESH_INTERVAL_MILLIS) {
             return recentlyFetchedIdentifiers;
         }
 
         AttributionIdentifiers identifiers = getAndroidId(context);
-
+        Cursor c = null;
         try {
-            String [] projection = {ATTRIBUTION_ID_COLUMN_NAME, ANDROID_ID_COLUMN_NAME, LIMIT_TRACKING_COLUMN_NAME};
-            Cursor c = context.getContentResolver().query(ATTRIBUTION_ID_CONTENT_URI, projection, null, null, null);
+            String [] projection = {
+                    ATTRIBUTION_ID_COLUMN_NAME,
+                    ANDROID_ID_COLUMN_NAME,
+                    LIMIT_TRACKING_COLUMN_NAME};
+            Uri providerUri = null;
+            if (context.getPackageManager().resolveContentProvider(
+                    ATTRIBUTION_ID_CONTENT_PROVIDER, 0) != null) {
+                providerUri = Uri.parse("content://" + ATTRIBUTION_ID_CONTENT_PROVIDER);
+            } else if (context.getPackageManager().resolveContentProvider(
+                    ATTRIBUTION_ID_CONTENT_PROVIDER_WAKIZASHI, 0) != null) {
+                providerUri = Uri.parse("content://" + ATTRIBUTION_ID_CONTENT_PROVIDER_WAKIZASHI);
+            }
+            if (providerUri == null) {
+                return identifiers;
+            }
+            c = context.getContentResolver().query(providerUri, projection, null, null, null);
             if (c == null || !c.moveToFirst()) {
-                return null;
+                return identifiers;
             }
             int attributionColumnIndex = c.getColumnIndex(ATTRIBUTION_ID_COLUMN_NAME);
             int androidIdColumnIndex = c.getColumnIndex(ANDROID_ID_COLUMN_NAME);
@@ -113,16 +150,21 @@ public class AttributionIdentifiers {
 
             identifiers.attributionId = c.getString(attributionColumnIndex);
 
-            // if we failed to call Google's APIs directly (due to improper integration by the client), it may be
-            // possible for the local facebook application to relay it to us.
-            if (androidIdColumnIndex > 0 && limitTrackingColumnIndex > 0 && identifiers.getAndroidAdvertiserId() == null) {
+            // if we failed to call Google's APIs directly (due to improper integration by the
+            // client), it may be possible for the local facebook application to relay it to us.
+            if (androidIdColumnIndex > 0 && limitTrackingColumnIndex > 0 &&
+                    identifiers.getAndroidAdvertiserId() == null) {
                 identifiers.androidAdvertiserId = c.getString(androidIdColumnIndex);
-                identifiers.limitTracking = Boolean.parseBoolean(c.getString(limitTrackingColumnIndex));
+                identifiers.limitTracking =
+                        Boolean.parseBoolean(c.getString(limitTrackingColumnIndex));
             }
-            c.close();
         } catch (Exception e) {
             Log.d(TAG, "Caught unexpected exception in getAttributionId(): " + e.toString());
             return null;
+        } finally {
+            if (c != null) {
+                c.close();
+            }
         }
 
         identifiers.fetchTime = System.currentTimeMillis();

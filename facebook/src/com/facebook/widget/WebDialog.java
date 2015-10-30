@@ -44,8 +44,9 @@ import com.facebook.internal.ServerProtocol;
 import com.facebook.internal.Utility;
 import com.facebook.internal.Validate;
 
-import info.guardianproject.onionkit.ui.OrbotHelper;
-import info.guardianproject.onionkit.web.*;
+import info.guardianproject.netcipher.proxy.OrbotHelper;
+import info.guardianproject.netcipher.web.WebkitProxy;
+
 
 /**
  * This class provides a mechanism for displaying Facebook Web dialogs inside a Dialog. Helper
@@ -349,12 +350,10 @@ public class WebDialog extends Dialog {
     @SuppressLint("SetJavaScriptEnabled")
     private void setUpWebView(int margin) {
         LinearLayout webViewContainer = new LinearLayout(getContext());
-        webView = new WebView(getContext());  
-        OrbotHelper orbotHelper = new OrbotHelper(getContext());
-        
-        if(orbotHelper.isOrbotRunning()) {    
+        webView = new WebView(getContext());
+        if(OrbotHelper.isOrbotRunning(mContext)) {
             try {
-    			WebkitProxy.setProxy("android.app.Application", mContext.getApplicationContext() , ORBOT_HOST, ORBOT_HTTP_PORT);
+    			WebkitProxy.setProxy("android.app.Application", mContext.getApplicationContext(),webView, ORBOT_HOST, ORBOT_HTTP_PORT);
     		} catch (Exception e) {
     			Utility.logd(LOG_TAG, "WebKitProxy: Error setting Proxy");
     			e.printStackTrace();

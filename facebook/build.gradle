@@ -2,7 +2,7 @@ apply plugin: 'android-library'
 
 android {
     compileSdkVersion 21
-    buildToolsVersion "21.0.0"
+    buildToolsVersion "22.0.1"
 
     defaultConfig {
         minSdkVersion 8
@@ -23,7 +23,7 @@ android {
 }
 
 dependencies {
-    compile project(':external:NetCipher:libnetcipher')
+    compile 'info.guardianproject.netcipher:netcipher:1.2'
     compile 'com.android.support:support-v4:21.0.3'
     compile files('libs/bolts.jar')
 }

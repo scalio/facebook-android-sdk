@@ -30,8 +30,6 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import info.guardianproject.onionkit.ui.OrbotHelper;
-
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
